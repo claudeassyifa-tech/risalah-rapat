@@ -97,7 +97,16 @@
   .field:last-child{margin-bottom:0;}
   .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
   .field input[type=text], .field input[type=date], .field select, .field textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:6px;font-family:var(--font-sans);font-size:13.5px;color:var(--ink);background:var(--paper);}
-  .field textarea{resize:vertical;min-height:64px;font-family:var(--font-sans);line-height:1.5;}
+  .field textarea{resize:none;min-height:44px;overflow:hidden;font-family:var(--font-sans);line-height:1.5;}
+  .richtext-toolbar{display:flex;gap:4px;margin-bottom:6px;}
+  .rt-btn{border:1px solid var(--line);background:var(--card);border-radius:5px;min-width:30px;height:28px;padding:0 8px;font-size:12.5px;cursor:pointer;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;font-family:var(--font-sans);}
+  .rt-btn:hover{background:#F5F2EA;color:var(--ink);}
+  .rt-btn.active{background:var(--topik-bg);color:var(--topik-c);border-color:var(--topik-c);}
+  .block-isi{min-height:60px;padding:10px 11px;border:1px solid var(--line);border-radius:6px;background:var(--paper);font-family:var(--font-sans);font-size:13.5px;line-height:1.55;color:var(--ink);}
+  .block-isi:focus{outline:2px solid #C9D9EC;border-color:var(--navy);}
+  .block-isi ol, .block-isi ul{margin:4px 0 4px 22px;padding:0;}
+  .block-isi li{margin-bottom:2px;}
+  .block-isi:empty:before{content:attr(data-placeholder);color:var(--ink-faint);}
   .field input:focus, .field select:focus, .field textarea:focus{outline:2px solid #C9D9EC;border-color:var(--navy);}
   .nomor-display{font-family:var(--font-mono);font-size:14px;color:var(--navy);background:var(--gold-light);border:1px dashed var(--gold);border-radius:6px;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;}
   .nomor-display button{background:none;border:none;color:var(--navy);cursor:pointer;font-size:12px;text-decoration:underline;font-family:var(--font-sans);}
@@ -175,7 +184,9 @@
   .doc-block-head{display:flex;gap:8px;align-items:baseline;font-size:13px;font-weight:700;margin-bottom:3px;flex-wrap:wrap;}
   .doc-block-badge{font-size:9.5px;font-weight:700;text-transform:uppercase;padding:2px 6px;border:1px solid #999;border-radius:3px;font-weight:700;}
   .doc-block-extra{color:#555;font-size:11px;font-weight:400;}
-  .doc-block-body{font-size:12.5px;white-space:pre-wrap;line-height:1.55;margin:4px 0 0;}
+  .doc-block-body{font-size:12.5px;line-height:1.55;margin:4px 0 0;}
+  .doc-block-body ol, .doc-block-body ul{margin:4px 0 4px 22px;padding:0;}
+  .doc-block-body li{margin-bottom:2px;}
   .doc-block-time{font-size:10px;color:#999;margin-top:3px;}
   .doc-next{font-size:12.5px;line-height:1.6;background:#F7F5EF;border:1px solid #ddd;border-radius:6px;padding:12px 14px;}
   .doc-sign{display:flex;justify-content:space-between;margin-top:50px;font-size:12.5px;}
@@ -420,6 +431,12 @@ async function saveEditing(){
 }
 
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function toDisplayHtml(isi){
+  if(!isi) return "";
+  if(isi.indexOf('<') === -1){ return esc(isi).replace(/\n/g,'<br>'); }
+  return isi;
+}
+function autoGrow(el){ if(!el) return; el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }
 
 function renderSetupNotice(){
   return '<div class="topbar"><div class="topbar-inner"><div class="brand"><img src="' + LOGO_DATA_URI + '" alt="Logo" class="brand-logo"><div><h1>Risalah Rapat</h1><p>Assyifa Tour and Travel</p></div></div></div></div>' +
@@ -598,7 +615,13 @@ function renderForm(){
             '<span class="block-timestamp">' + esc(formatTimestamp(b.timestamp)) + '</span>' +
           '</div>' +
         '</div>' +
-        '<textarea class="block-isi" data-idx="' + idx + '" placeholder="Tulis di sini...">' + esc(b.isi) + '</textarea>' +
+        '<div class="richtext-toolbar">' +
+          '<button type="button" class="rt-btn" data-cmd="bold" data-idx="' + idx + '" title="Tebal"><b>B</b></button>' +
+          '<button type="button" class="rt-btn" data-cmd="italic" data-idx="' + idx + '" title="Miring"><i>I</i></button>' +
+          '<button type="button" class="rt-btn" data-cmd="insertOrderedList" data-idx="' + idx + '" title="Penomoran">1.</button>' +
+          '<button type="button" class="rt-btn" data-cmd="insertUnorderedList" data-idx="' + idx + '" title="Poin">&bull;</button>' +
+        '</div>' +
+        '<div class="block-isi" contenteditable="true" data-idx="' + idx + '" data-placeholder="Tulis di sini...">' + toDisplayHtml(b.isi) + '</div>' +
         '<div class="penanda-row">' +
           '<span style="font-size:11.5px;color:var(--ink-faint);">Tandai sebagai:</span>' +
           '<button type="button" class="penanda-btn btn-set-penanda' + (!b.penanda ? ' active-none' : '') + '" data-idx="' + idx + '" data-val="">Tidak ada</button>' +
@@ -701,7 +724,8 @@ function bindFormEvents(){
   document.getElementById("f-keterangan").oninput = function(e){ m.keterangan = e.target.value; };
   document.getElementById("f-rencana-tanggal").onchange = function(e){ m.rencana.tanggal = e.target.value; };
   document.getElementById("f-rencana-topik").oninput = function(e){ m.rencana.topik = e.target.value; };
-  document.getElementById("f-rencana-catatan").oninput = function(e){ m.rencana.catatan = e.target.value; };
+  document.getElementById("f-rencana-catatan").oninput = function(e){ m.rencana.catatan = e.target.value; autoGrow(e.target); };
+  autoGrow(document.getElementById("f-rencana-catatan"));
 
   document.getElementById("btn-regen-nomor").onclick = function(){ m.nomor = generateNomor(m.tanggal, m.id); render(); };
 
@@ -791,7 +815,18 @@ function bindFormEvents(){
     if(first) first.focus();
   };
   document.querySelectorAll(".block-judul-input").forEach(function(inp){ inp.oninput = function(e){ var idx=parseInt(inp.getAttribute("data-idx"),10); m.blocks[idx].judul = e.target.value; }; });
-  document.querySelectorAll(".block-isi").forEach(function(ta){ ta.oninput = function(e){ var idx=parseInt(ta.getAttribute("data-idx"),10); m.blocks[idx].isi = e.target.value; }; });
+  document.querySelectorAll(".block-isi").forEach(function(div){ div.oninput = function(e){ var idx=parseInt(div.getAttribute("data-idx"),10); m.blocks[idx].isi = div.innerHTML; }; });
+  document.querySelectorAll(".rt-btn").forEach(function(btn){
+    btn.addEventListener("mousedown", function(e){ e.preventDefault(); });
+    btn.addEventListener("click", function(){
+      var idx = btn.getAttribute("data-idx");
+      var target = document.querySelector('.block-isi[data-idx="' + idx + '"]');
+      if(!target) return;
+      target.focus();
+      document.execCommand(btn.getAttribute("data-cmd"), false, null);
+      m.blocks[parseInt(idx,10)].isi = target.innerHTML;
+    });
+  });
   document.querySelectorAll(".block-pic").forEach(function(sel){
     sel.onchange = function(e){
       var idx = parseInt(sel.getAttribute("data-idx"),10);
@@ -835,7 +870,7 @@ function printMeeting(id){
         badge = '<span class="doc-block-badge">Pengingat</span><span class="doc-block-extra">' + (b.status==="selesai"?"Selesai":"Masih aktif") + '</span>';
       }
       var judul = b.judul ? esc(b.judul) : ("Poin " + (i+1));
-      return '<div class="doc-block"><div class="doc-block-head"><span>' + judul + '</span>' + badge + '</div><p class="doc-block-body">' + esc(b.isi || "-") + '</p><div class="doc-block-time">Dicatat: ' + esc(formatTimestamp(b.timestamp)) + '</div></div>';
+      return '<div class="doc-block"><div class="doc-block-head"><span>' + judul + '</span>' + badge + '</div><div class="doc-block-body">' + (toDisplayHtml(b.isi) || "-") + '</div><div class="doc-block-time">Dicatat: ' + esc(formatTimestamp(b.timestamp)) + '</div></div>';
     }).join("");
 
   var rencanaHtml = "";
