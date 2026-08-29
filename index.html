@@ -131,6 +131,16 @@
   .add-block-btn{width:100%;padding:11px;border:1.5px dashed var(--gold);border-radius:8px;background:var(--gold-light);color:var(--navy);font-weight:600;font-size:13.5px;cursor:pointer;}
   .add-block-btn:hover{background:#EDDDC0;}
 
+  .metric-row{display:grid;grid-template-columns:1.3fr 1.5fr 0.8fr 1.5fr 34px;gap:8px;align-items:start;margin-bottom:10px;padding:10px;background:var(--paper);border:1px solid var(--line);border-radius:8px;}
+  .metric-row select, .metric-row input{padding:8px 9px;border:1px solid var(--line);border-radius:6px;font-family:var(--font-sans);font-size:13px;color:var(--ink);background:var(--card);width:100%;}
+  .metric-row input[type=number]{text-align:right;font-family:var(--font-mono);font-weight:600;}
+  .metric-row .icon-btn{align-self:center;}
+  .metric-header-row{display:grid;grid-template-columns:1.3fr 1.5fr 0.8fr 1.5fr 34px;gap:8px;padding:0 10px;margin-bottom:6px;}
+  .metric-header-row span{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-faint);}
+  .add-metric-btn{width:100%;padding:11px;border:1.5px dashed var(--navy);border-radius:8px;background:var(--gold-light);color:var(--navy);font-weight:600;font-size:13.5px;cursor:pointer;}
+  .add-metric-btn:hover{background:#EDDDC0;}
+  .no-metrics{color:var(--ink-faint);font-size:13px;text-align:center;padding:16px;border:1px dashed var(--line);border-radius:8px;margin-bottom:10px;}
+
   .form-footer{display:flex;justify-content:space-between;align-items:center;margin-top:22px;flex-wrap:wrap;gap:10px;}
   .save-status{font-size:12px;color:var(--ink-faint);}
   select option{font-family:var(--font-sans);}
@@ -189,7 +199,8 @@ var state = {
   settings: {
     prefix: "RR",
     jenisOptions: ["Briefing Today","Rapat Pekanan","Rapat Umum","Rapat Tim Operasional","Rapat Tim Marketing"],
-    topikSuggestions: ["Persiapan Manasik","Persiapan Keberangkatan","Persiapan Penjemputan","Informasi Umum","Strategi","Laporan","Evaluasi Kegiatan"]
+    topikSuggestions: ["Persiapan Manasik","Persiapan Keberangkatan","Persiapan Penjemputan","Informasi Umum","Strategi","Laporan","Evaluasi Kegiatan"],
+    indikatorSuggestions: ["Telepon","Follow Up","Closing","Kunjungan","Booking","Pembayaran Lunas"]
   },
   editing: null,
   searchQuery: "",
@@ -224,7 +235,7 @@ function rowToMeeting(row){
   return {
     id: row.id, nomor: row.nomor, tanggal: row.tanggal, jenisRapat: row.jenis_rapat,
     topik: row.topik || [], keterangan: row.keterangan || "", pimpinan: row.pimpinan || "", notulen: row.notulen || "",
-    peserta: row.peserta || [], blocks: row.blocks || [], rencana: row.rencana || { tanggal:"", topik:"", catatan:"" },
+    peserta: row.peserta || [], blocks: row.blocks || [], metrics: row.metrics || [], rencana: row.rencana || { tanggal:"", topik:"", catatan:"" },
     createdAt: row.created_at, updatedAt: row.updated_at
   };
 }
@@ -232,7 +243,7 @@ function meetingToRow(m){
   return {
     id: m.id, nomor: m.nomor, tanggal: m.tanggal, jenis_rapat: m.jenisRapat,
     topik: m.topik||[], keterangan: m.keterangan||"", pimpinan: m.pimpinan||"", notulen: m.notulen||"",
-    peserta: m.peserta||[], blocks: m.blocks||[], rencana: m.rencana||{}, updated_at: new Date().toISOString()
+    peserta: m.peserta||[], blocks: m.blocks||[], metrics: m.metrics||[], rencana: m.rencana||{}, updated_at: new Date().toISOString()
   };
 }
 
@@ -250,10 +261,11 @@ async function loadData(){
       state.settings = {
         prefix: r2.data.prefix || "RR",
         jenisOptions: r2.data.jenis_options || state.settings.jenisOptions,
-        topikSuggestions: r2.data.topik_suggestions || state.settings.topikSuggestions
+        topikSuggestions: r2.data.topik_suggestions || state.settings.topikSuggestions,
+        indikatorSuggestions: r2.data.indikator_suggestions || state.settings.indikatorSuggestions
       };
     } else {
-      await supabaseClient.from('app_settings').upsert({ id:'default', prefix: state.settings.prefix, jenis_options: state.settings.jenisOptions, topik_suggestions: state.settings.topikSuggestions });
+      await supabaseClient.from('app_settings').upsert({ id:'default', prefix: state.settings.prefix, jenis_options: state.settings.jenisOptions, topik_suggestions: state.settings.topikSuggestions, indikator_suggestions: state.settings.indikatorSuggestions });
     }
   }catch(e){
     console.error("Gagal memuat data dari Supabase", e);
@@ -282,7 +294,7 @@ async function deleteMeetingRow(id){
 }
 async function saveSettingsRow(){
   try{
-    var r = await supabaseClient.from('app_settings').upsert({ id:'default', prefix: state.settings.prefix, jenis_options: state.settings.jenisOptions, topik_suggestions: state.settings.topikSuggestions });
+    var r = await supabaseClient.from('app_settings').upsert({ id:'default', prefix: state.settings.prefix, jenis_options: state.settings.jenisOptions, topik_suggestions: state.settings.topikSuggestions, indikator_suggestions: state.settings.indikatorSuggestions });
     if(r.error) throw r.error;
   }catch(e){ console.error("Gagal menyimpan pengaturan", e); }
 }
@@ -368,7 +380,7 @@ function blankMeeting(){
     id: uid(), nomor: generateNomor(today, null), tanggal: today,
     jenisRapat: state.settings.jenisOptions[0] || "Rapat Umum",
     topik: [], keterangan: "", pimpinan: "", notulen: "", peserta: [],
-    blocks: [], rencana: { tanggal:"", topik:"", catatan:"" },
+    blocks: [], metrics: [], rencana: { tanggal:"", topik:"", catatan:"" },
     isNew: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
   };
 }
@@ -379,6 +391,7 @@ function openEdit(id){
   state.editing = JSON.parse(JSON.stringify(m));
   if(!state.editing.rencana) state.editing.rencana = { tanggal:"", topik:"", catatan:"" };
   if(!state.editing.topik) state.editing.topik = [];
+  if(!state.editing.metrics) state.editing.metrics = [];
   state.editing.isNew = false;
   state.view = "form"; render();
 }
@@ -596,6 +609,20 @@ function renderForm(){
       '</div>';
     }).join("");
 
+  var metricsHtml = (m.metrics||[]).length === 0 ?
+    '<div class="no-metrics">Belum ada data angka. Klik tombol di bawah untuk menambah.</div>' :
+    '<div class="metric-header-row"><span>Nama</span><span>Indikator</span><span>Angka</span><span>Catatan</span><span></span></div>' +
+    m.metrics.map(function(r, idx){
+      return '<div class="metric-row" data-idx="' + idx + '">' +
+        '<select class="metric-staff" data-idx="' + idx + '">' + staffOptionsHtml(r.staff) + '</select>' +
+        '<input type="text" class="metric-indikator" list="indikator-datalist" data-idx="' + idx + '" value="' + esc(r.indikator) + '" placeholder="mis. Telepon, Closing">' +
+        '<input type="number" class="metric-angka" data-idx="' + idx + '" value="' + esc(r.angka) + '" placeholder="0">' +
+        '<input type="text" class="metric-catatan" data-idx="' + idx + '" value="' + esc(r.catatan||"") + '" placeholder="Opsional">' +
+        '<button class="icon-btn danger btn-del-metric" data-idx="' + idx + '" title="Hapus baris"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>' +
+      '</div>';
+    }).join("") +
+    '<datalist id="indikator-datalist">' + state.settings.indikatorSuggestions.map(function(s){ return '<option value="' + esc(s) + '">'; }).join("") + '</datalist>';
+
   return '' +
   '<div class="form-header"><div class="back-link" id="btn-back"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg> Kembali ke daftar</div>' +
     '<div class="actions">' + (!m.isNew ? '<button class="btn btn-ghost" id="btn-print-form"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:2px;vertical-align:-2px;"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Cetak PDF</button>' : '') + '<button class="btn btn-navy" id="btn-save">Simpan Rapat</button></div>' +
@@ -615,6 +642,9 @@ function renderForm(){
     '<div class="suggest-row">' + staffSuggestButtonsHtml(m) + '</div>' +
     '<div class="hint">Klik nama staff untuk menambah cepat, atau ketik manual untuk peserta di luar staff.</div></div>' +
   '</div>' +
+  '<div class="section-card"><div class="section-title">Data Kinerja / Capaian <span class="optional-tag">(opsional, angka per orang)</span></div>' +
+    '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 14px;">Catat capaian terukur tiap orang, misal: Telepon = 5, Closing = 3.</p>' +
+    '<div id="metrics-list">' + metricsHtml + '</div><button class="add-metric-btn" id="btn-add-metric" style="margin-top:4px;">+ Tambah Data Angka</button></div>' +
   '<div class="section-card"><div class="section-title">Isi Rapat</div><div id="blocks-list">' + blocksHtml + '</div><button class="add-block-btn" id="btn-add-block" style="margin-top:10px;">+ Tambah Kolom</button></div>' +
   '<div class="section-card"><div class="section-title">Rencana Rapat Berikutnya <span class="optional-tag">(opsional)</span></div>' +
     '<div class="grid-2"><div class="field"><label>Perkiraan Tanggal</label><input type="date" id="f-rencana-tanggal" value="' + esc(m.rencana.tanggal) + '"></div><div class="field"><label>Topik</label><input type="text" id="f-rencana-topik" value="' + esc(m.rencana.topik) + '" placeholder="Akan membahas apa"></div></div>' +
@@ -721,6 +751,38 @@ function bindFormEvents(){
   document.querySelectorAll(".btn-remove-topik").forEach(function(b){ b.onclick = function(){ var idx=parseInt(b.getAttribute("data-idx"),10); m.topik.splice(idx,1); render(); }; });
   document.querySelectorAll(".btn-suggest-topik").forEach(function(b){ b.onclick = function(){ addTopik(b.getAttribute("data-val")); }; });
 
+  document.getElementById("btn-add-metric").onclick = function(){
+    m.metrics = m.metrics || [];
+    m.metrics.unshift({ id: uid(), staff: "", indikator: "", angka: "", catatan: "", timestamp: new Date().toISOString() });
+    render();
+    var first = document.querySelector('.metric-staff[data-idx="0"]');
+    if(first) first.focus();
+  };
+  document.querySelectorAll(".metric-staff").forEach(function(sel){
+    sel.onchange = function(e){
+      var idx = parseInt(sel.getAttribute("data-idx"),10);
+      if(e.target.value === "__add__"){
+        var v = prompt("Nama (di luar daftar staff):");
+        if(v && v.trim()){ m.metrics[idx].staff = v.trim(); render(); } else { e.target.value = m.metrics[idx].staff || ""; }
+      } else { m.metrics[idx].staff = e.target.value; }
+    };
+  });
+  document.querySelectorAll(".metric-indikator").forEach(function(inp){
+    inp.oninput = function(e){ var idx=parseInt(inp.getAttribute("data-idx"),10); m.metrics[idx].indikator = e.target.value; };
+    inp.onblur = function(e){
+      var v = e.target.value.trim();
+      if(v && state.settings.indikatorSuggestions.indexOf(v) === -1){
+        state.settings.indikatorSuggestions.push(v);
+        saveSettingsRow();
+      }
+    };
+  });
+  document.querySelectorAll(".metric-angka").forEach(function(inp){ inp.oninput = function(e){ var idx=parseInt(inp.getAttribute("data-idx"),10); m.metrics[idx].angka = e.target.value; }; });
+  document.querySelectorAll(".metric-catatan").forEach(function(inp){ inp.oninput = function(e){ var idx=parseInt(inp.getAttribute("data-idx"),10); m.metrics[idx].catatan = e.target.value; }; });
+  document.querySelectorAll(".btn-del-metric").forEach(function(b){
+    b.onclick = function(){ var idx=parseInt(b.getAttribute("data-idx"),10); m.metrics.splice(idx,1); render(); };
+  });
+
   document.getElementById("btn-add-block").onclick = function(){
     m.blocks = m.blocks || [];
     m.blocks.unshift({ id: uid(), judul: "", isi: "", penanda: "", pic: "", tenggat: "", status: "", timestamp: new Date().toISOString() });
@@ -785,6 +847,24 @@ function printMeeting(id){
     '</div>';
   }
 
+  var metricsHtmlPrint = "";
+  if(m.metrics && m.metrics.length){
+    var byStaff = {};
+    var order = [];
+    m.metrics.forEach(function(r){
+      var name = r.staff || "(Tanpa nama)";
+      if(!byStaff[name]){ byStaff[name] = []; order.push(name); }
+      byStaff[name].push(r);
+    });
+    var groupsHtml = order.map(function(name){
+      var rowsHtml = byStaff[name].map(function(r){
+        return '<tr><td style="padding:3px 8px 3px 0;">' + esc(r.indikator || "-") + '</td><td style="padding:3px 8px;text-align:right;font-weight:700;">' + esc(String(r.angka!==""&&r.angka!=null?r.angka:"-")) + '</td><td style="padding:3px 0 3px 8px;color:#666;">' + esc(r.catatan||"") + '</td></tr>';
+      }).join("");
+      return '<div style="margin-bottom:12px;"><div style="font-weight:700;font-size:12.5px;margin-bottom:4px;">' + esc(name) + '</div><table style="width:100%;border-collapse:collapse;font-size:12px;">' + rowsHtml + '</table></div>';
+    }).join("");
+    metricsHtmlPrint = '<div class="doc-section-h">Data Kinerja / Capaian</div>' + groupsHtml;
+  }
+
   var html = '<div class="doc-page">' +
     '<div class="doc-header-logo"><img src="' + LOGO_DATA_URI + '" alt="Logo Assyifa Tour and Travel"></div>' +
     '<div class="doc-title">Risalah Rapat</div>' +
@@ -798,6 +878,7 @@ function printMeeting(id){
       '<tr><td class="k">Notulen</td><td class="sep">:</td><td>' + esc(m.notulen || "-") + '</td></tr>' +
       '<tr><td class="k">Peserta</td><td class="sep">:</td><td>' + esc(pesertaText) + '</td></tr>' +
     '</table>' +
+    metricsHtmlPrint +
     '<div class="doc-section-h">Isi Rapat</div>' + blocksHtml +
     rencanaHtml +
     '<div class="doc-sign"><div class="doc-sign-block">Mengetahui,<br>Pimpinan Rapat<div class="doc-sign-space"></div><strong>' + esc(m.pimpinan || "________________") + '</strong></div><div class="doc-sign-block">Notulen<div class="doc-sign-space"></div><strong>' + esc(m.notulen || "________________") + '</strong></div></div>' +
