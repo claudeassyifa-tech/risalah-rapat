@@ -140,12 +140,17 @@
   .add-block-btn{width:100%;padding:11px;border:1.5px dashed var(--gold);border-radius:8px;background:var(--gold-light);color:var(--navy);font-weight:600;font-size:13.5px;cursor:pointer;}
   .add-block-btn:hover{background:#EDDDC0;}
 
-  .metric-row{display:grid;grid-template-columns:1.3fr 1.5fr 0.8fr 1.5fr 34px;gap:8px;align-items:start;margin-bottom:10px;padding:10px;background:var(--paper);border:1px solid var(--line);border-radius:8px;}
-  .metric-row select, .metric-row input{padding:8px 9px;border:1px solid var(--line);border-radius:6px;font-family:var(--font-sans);font-size:13px;color:var(--ink);background:var(--card);width:100%;}
+  .metric-group-card{border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:8px;padding:14px 16px;margin-bottom:14px;background:var(--paper);}
+  .metric-group-header{display:flex;gap:10px;align-items:center;margin-bottom:12px;}
+  .metric-group-header select{flex:1;max-width:320px;padding:8px 9px;border:1px solid var(--line);border-radius:6px;font-family:var(--font-sans);font-size:13.5px;font-weight:700;color:var(--navy);background:var(--card);}
+  .metric-row{display:grid;grid-template-columns:1.3fr 0.7fr 0.7fr 0.9fr 1.3fr 30px;gap:8px;align-items:start;margin-bottom:8px;}
+  .metric-row select, .metric-row input{padding:7px 8px;border:1px solid var(--line);border-radius:6px;font-family:var(--font-sans);font-size:12.5px;color:var(--ink);background:var(--card);width:100%;}
   .metric-row input[type=number]{text-align:right;font-family:var(--font-mono);font-weight:600;}
-  .metric-row .icon-btn{align-self:center;}
-  .metric-header-row{display:grid;grid-template-columns:1.3fr 1.5fr 0.8fr 1.5fr 34px;gap:8px;padding:0 10px;margin-bottom:6px;}
-  .metric-header-row span{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-faint);}
+  .metric-row .icon-btn{align-self:center;width:28px;height:28px;}
+  .metric-header-row{display:grid;grid-template-columns:1.3fr 0.7fr 0.7fr 0.9fr 1.3fr 30px;gap:8px;margin-bottom:6px;}
+  .metric-header-row span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-faint);}
+  .add-metric-row-btn{background:none;border:none;color:var(--navy);font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 0;text-decoration:underline;}
+  .metric-group-delete{margin-left:auto;}
   .add-metric-btn{width:100%;padding:11px;border:1.5px dashed var(--navy);border-radius:8px;background:var(--gold-light);color:var(--navy);font-weight:600;font-size:13.5px;cursor:pointer;}
   .add-metric-btn:hover{background:#EDDDC0;}
   .no-metrics{color:var(--ink-faint);font-size:13px;text-align:center;padding:16px;border:1px dashed var(--line);border-radius:8px;margin-bottom:10px;}
@@ -242,11 +247,34 @@ var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 var SUPABASE_CONFIGURED = SUPABASE_URL.indexOf("GANTI_DENGAN") === -1 && SUPABASE_ANON_KEY.indexOf("GANTI_DENGAN") === -1;
 var supabaseClient = SUPABASE_CONFIGURED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
+function normalizeMetricGroups(raw){
+  if(!raw || !raw.length) return [];
+  if(raw[0] && Array.isArray(raw[0].rows)) return raw;
+  var groups = [];
+  var byStaff = {};
+  raw.forEach(function(item){
+    var staffName = item.staff || "";
+    if(!byStaff[staffName]){
+      var g = { id: uid(), staff: staffName, rows: [] };
+      byStaff[staffName] = g;
+      groups.push(g);
+    }
+    byStaff[staffName].rows.push({
+      id: item.id || uid(),
+      indikator: item.indikator || "",
+      target: "",
+      terealisasi: item.angka!=null && item.angka!=="" ? item.angka : "",
+      hasil: "",
+      catatan: item.catatan || ""
+    });
+  });
+  return groups;
+}
 function rowToMeeting(row){
   return {
     id: row.id, nomor: row.nomor, tanggal: row.tanggal, jenisRapat: row.jenis_rapat,
     topik: row.topik || [], keterangan: row.keterangan || "", pimpinan: row.pimpinan || "", notulen: row.notulen || "",
-    peserta: row.peserta || [], blocks: row.blocks || [], metrics: row.metrics || [], rencana: row.rencana || { tanggal:"", topik:"", catatan:"" },
+    peserta: row.peserta || [], blocks: row.blocks || [], metrics: normalizeMetricGroups(row.metrics || []), rencana: row.rencana || { tanggal:"", topik:"", catatan:"" },
     createdAt: row.created_at, updatedAt: row.updated_at
   };
 }
@@ -618,6 +646,7 @@ function renderForm(){
         '<div class="richtext-toolbar">' +
           '<button type="button" class="rt-btn" data-cmd="bold" data-idx="' + idx + '" title="Tebal"><b>B</b></button>' +
           '<button type="button" class="rt-btn" data-cmd="italic" data-idx="' + idx + '" title="Miring"><i>I</i></button>' +
+          '<button type="button" class="rt-btn" data-cmd="underline" data-idx="' + idx + '" title="Garis Bawah"><u>U</u></button>' +
           '<button type="button" class="rt-btn" data-cmd="insertOrderedList" data-idx="' + idx + '" title="Penomoran">1.</button>' +
           '<button type="button" class="rt-btn" data-cmd="insertUnorderedList" data-idx="' + idx + '" title="Poin">&bull;</button>' +
         '</div>' +
@@ -634,14 +663,25 @@ function renderForm(){
 
   var metricsHtml = (m.metrics||[]).length === 0 ?
     '<div class="no-metrics">Belum ada data angka. Klik tombol di bawah untuk menambah.</div>' :
-    '<div class="metric-header-row"><span>Nama</span><span>Indikator</span><span>Angka</span><span>Catatan</span><span></span></div>' +
-    m.metrics.map(function(r, idx){
-      return '<div class="metric-row" data-idx="' + idx + '">' +
-        '<select class="metric-staff" data-idx="' + idx + '">' + staffOptionsHtml(r.staff) + '</select>' +
-        '<input type="text" class="metric-indikator" list="indikator-datalist" data-idx="' + idx + '" value="' + esc(r.indikator) + '" placeholder="mis. Telepon, Closing">' +
-        '<input type="number" class="metric-angka" data-idx="' + idx + '" value="' + esc(r.angka) + '" placeholder="0">' +
-        '<input type="text" class="metric-catatan" data-idx="' + idx + '" value="' + esc(r.catatan||"") + '" placeholder="Opsional">' +
-        '<button class="icon-btn danger btn-del-metric" data-idx="' + idx + '" title="Hapus baris"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>' +
+    m.metrics.map(function(g, gIdx){
+      var rowsHtml = (g.rows||[]).length === 0 ? '' :
+        '<div class="metric-header-row"><span>Indikator</span><span>Target</span><span>Terealisasi</span><span>Hasil</span><span>Catatan</span><span></span></div>' +
+        g.rows.map(function(r, rIdx){
+          return '<div class="metric-row" data-gidx="' + gIdx + '" data-ridx="' + rIdx + '">' +
+            '<input type="text" class="metric-indikator" list="indikator-datalist" data-gidx="' + gIdx + '" data-ridx="' + rIdx + '" value="' + esc(r.indikator) + '" placeholder="mis. Telepon, Closing">' +
+            '<input type="number" class="metric-target" data-gidx="' + gIdx + '" data-ridx="' + rIdx + '" value="' + esc(r.target) + '" placeholder="0">' +
+            '<input type="number" class="metric-terealisasi" data-gidx="' + gIdx + '" data-ridx="' + rIdx + '" value="' + esc(r.terealisasi) + '" placeholder="0">' +
+            '<input type="text" class="metric-hasil" data-gidx="' + gIdx + '" data-ridx="' + rIdx + '" value="' + esc(r.hasil) + '" placeholder="mis. 80%">' +
+            '<input type="text" class="metric-catatan" data-gidx="' + gIdx + '" data-ridx="' + rIdx + '" value="' + esc(r.catatan||"") + '" placeholder="Opsional">' +
+            '<button class="icon-btn danger btn-del-metric-row" data-gidx="' + gIdx + '" data-ridx="' + rIdx + '" title="Hapus baris"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>' +
+          '</div>';
+        }).join("");
+      return '<div class="metric-group-card" data-gidx="' + gIdx + '">' +
+        '<div class="metric-group-header"><select class="metric-staff" data-gidx="' + gIdx + '">' + staffOptionsHtml(g.staff) + '</select>' +
+          '<button class="icon-btn danger metric-group-delete btn-del-metric-group" data-gidx="' + gIdx + '" title="Hapus orang ini"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>' +
+        '</div>' +
+        rowsHtml +
+        '<button type="button" class="add-metric-row-btn" data-gidx="' + gIdx + '">+ Tambah Indikator untuk orang ini</button>' +
       '</div>';
     }).join("") +
     '<datalist id="indikator-datalist">' + state.settings.indikatorSuggestions.map(function(s){ return '<option value="' + esc(s) + '">'; }).join("") + '</datalist>';
@@ -666,8 +706,8 @@ function renderForm(){
     '<div class="hint">Klik nama staff untuk menambah cepat, atau ketik manual untuk peserta di luar staff.</div></div>' +
   '</div>' +
   '<div class="section-card"><div class="section-title">Data Kinerja / Capaian <span class="optional-tag">(opsional, angka per orang)</span></div>' +
-    '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 14px;">Catat capaian terukur tiap orang, misal: Telepon = 5, Closing = 3.</p>' +
-    '<div id="metrics-list">' + metricsHtml + '</div><button class="add-metric-btn" id="btn-add-metric" style="margin-top:4px;">+ Tambah Data Angka</button></div>' +
+    '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 14px;">Pilih nama, lalu tambahkan indikator sebanyak yang perlu untuk orang itu. Misal Andy: Telepon (Target 10, Terealisasi 8), Closing (Target 3, Terealisasi 2).</p>' +
+    '<div id="metrics-list">' + metricsHtml + '</div><button class="add-metric-btn" id="btn-add-metric" style="margin-top:4px;">+ Tambah Orang</button></div>' +
   '<div class="section-card"><div class="section-title">Isi Rapat</div><div id="blocks-list">' + blocksHtml + '</div><button class="add-block-btn" id="btn-add-block" style="margin-top:10px;">+ Tambah Kolom</button></div>' +
   '<div class="section-card"><div class="section-title">Rencana Rapat Berikutnya <span class="optional-tag">(opsional)</span></div>' +
     '<div class="grid-2"><div class="field"><label>Perkiraan Tanggal</label><input type="date" id="f-rencana-tanggal" value="' + esc(m.rencana.tanggal) + '"></div><div class="field"><label>Topik</label><input type="text" id="f-rencana-topik" value="' + esc(m.rencana.topik) + '" placeholder="Akan membahas apa"></div></div>' +
@@ -777,34 +817,59 @@ function bindFormEvents(){
 
   document.getElementById("btn-add-metric").onclick = function(){
     m.metrics = m.metrics || [];
-    m.metrics.unshift({ id: uid(), staff: "", indikator: "", angka: "", catatan: "", timestamp: new Date().toISOString() });
+    m.metrics.push({ id: uid(), staff: "", rows: [{ id: uid(), indikator: "", target: "", terealisasi: "", hasil: "", catatan: "" }] });
     render();
-    var first = document.querySelector('.metric-staff[data-idx="0"]');
+    var lastIdx = m.metrics.length - 1;
+    var first = document.querySelector('.metric-staff[data-gidx="' + lastIdx + '"]');
     if(first) first.focus();
   };
   document.querySelectorAll(".metric-staff").forEach(function(sel){
     sel.onchange = function(e){
-      var idx = parseInt(sel.getAttribute("data-idx"),10);
+      var gIdx = parseInt(sel.getAttribute("data-gidx"),10);
       if(e.target.value === "__add__"){
         var v = prompt("Nama (di luar daftar staff):");
-        if(v && v.trim()){ m.metrics[idx].staff = v.trim(); render(); } else { e.target.value = m.metrics[idx].staff || ""; }
-      } else { m.metrics[idx].staff = e.target.value; }
+        if(v && v.trim()){ m.metrics[gIdx].staff = v.trim(); render(); } else { e.target.value = m.metrics[gIdx].staff || ""; }
+      } else { m.metrics[gIdx].staff = e.target.value; }
+    };
+  });
+  document.querySelectorAll(".btn-del-metric-group").forEach(function(b){
+    b.onclick = function(){
+      var gIdx = parseInt(b.getAttribute("data-gidx"),10);
+      if(m.metrics[gIdx].rows && m.metrics[gIdx].rows.length > 0){
+        if(!confirm("Hapus semua data kinerja untuk orang ini?")) return;
+      }
+      m.metrics.splice(gIdx,1);
+      render();
+    };
+  });
+  document.querySelectorAll(".add-metric-row-btn").forEach(function(b){
+    b.onclick = function(){
+      var gIdx = parseInt(b.getAttribute("data-gidx"),10);
+      m.metrics[gIdx].rows = m.metrics[gIdx].rows || [];
+      m.metrics[gIdx].rows.push({ id: uid(), indikator: "", target: "", terealisasi: "", hasil: "", catatan: "" });
+      render();
+      var lastIdx = m.metrics[gIdx].rows.length - 1;
+      var first = document.querySelector('.metric-indikator[data-gidx="' + gIdx + '"][data-ridx="' + lastIdx + '"]');
+      if(first) first.focus();
     };
   });
   document.querySelectorAll(".metric-indikator").forEach(function(inp){
-    inp.oninput = function(e){ var idx=parseInt(inp.getAttribute("data-idx"),10); m.metrics[idx].indikator = e.target.value; };
+    inp.oninput = function(e){ var g=parseInt(inp.getAttribute("data-gidx"),10), r=parseInt(inp.getAttribute("data-ridx"),10); m.metrics[g].rows[r].indikator = e.target.value; };
     inp.onblur = function(e){
       var v = e.target.value.trim();
-      if(v && state.settings.indikatorSuggestions.indexOf(v) === -1){
-        state.settings.indikatorSuggestions.push(v);
-        saveSettingsRow();
-      }
+      if(v && state.settings.indikatorSuggestions.indexOf(v) === -1){ state.settings.indikatorSuggestions.push(v); saveSettingsRow(); }
     };
   });
-  document.querySelectorAll(".metric-angka").forEach(function(inp){ inp.oninput = function(e){ var idx=parseInt(inp.getAttribute("data-idx"),10); m.metrics[idx].angka = e.target.value; }; });
-  document.querySelectorAll(".metric-catatan").forEach(function(inp){ inp.oninput = function(e){ var idx=parseInt(inp.getAttribute("data-idx"),10); m.metrics[idx].catatan = e.target.value; }; });
-  document.querySelectorAll(".btn-del-metric").forEach(function(b){
-    b.onclick = function(){ var idx=parseInt(b.getAttribute("data-idx"),10); m.metrics.splice(idx,1); render(); };
+  document.querySelectorAll(".metric-target").forEach(function(inp){ inp.oninput = function(e){ var g=parseInt(inp.getAttribute("data-gidx"),10), r=parseInt(inp.getAttribute("data-ridx"),10); m.metrics[g].rows[r].target = e.target.value; }; });
+  document.querySelectorAll(".metric-terealisasi").forEach(function(inp){ inp.oninput = function(e){ var g=parseInt(inp.getAttribute("data-gidx"),10), r=parseInt(inp.getAttribute("data-ridx"),10); m.metrics[g].rows[r].terealisasi = e.target.value; }; });
+  document.querySelectorAll(".metric-hasil").forEach(function(inp){ inp.oninput = function(e){ var g=parseInt(inp.getAttribute("data-gidx"),10), r=parseInt(inp.getAttribute("data-ridx"),10); m.metrics[g].rows[r].hasil = e.target.value; }; });
+  document.querySelectorAll(".metric-catatan").forEach(function(inp){ inp.oninput = function(e){ var g=parseInt(inp.getAttribute("data-gidx"),10), r=parseInt(inp.getAttribute("data-ridx"),10); m.metrics[g].rows[r].catatan = e.target.value; }; });
+  document.querySelectorAll(".btn-del-metric-row").forEach(function(b){
+    b.onclick = function(){
+      var g=parseInt(b.getAttribute("data-gidx"),10), r=parseInt(b.getAttribute("data-ridx"),10);
+      m.metrics[g].rows.splice(r,1);
+      render();
+    };
   });
 
   document.getElementById("btn-add-block").onclick = function(){
@@ -884,20 +949,26 @@ function printMeeting(id){
 
   var metricsHtmlPrint = "";
   if(m.metrics && m.metrics.length){
-    var byStaff = {};
-    var order = [];
-    m.metrics.forEach(function(r){
-      var name = r.staff || "(Tanpa nama)";
-      if(!byStaff[name]){ byStaff[name] = []; order.push(name); }
-      byStaff[name].push(r);
-    });
-    var groupsHtml = order.map(function(name){
-      var rowsHtml = byStaff[name].map(function(r){
-        return '<tr><td style="padding:3px 8px 3px 0;">' + esc(r.indikator || "-") + '</td><td style="padding:3px 8px;text-align:right;font-weight:700;">' + esc(String(r.angka!==""&&r.angka!=null?r.angka:"-")) + '</td><td style="padding:3px 0 3px 8px;color:#666;">' + esc(r.catatan||"") + '</td></tr>';
+    var groupsHtml = m.metrics.filter(function(g){ return g.rows && g.rows.length; }).map(function(g){
+      var headRow = '<tr>' +
+        '<td style="padding:3px 8px 3px 0;font-weight:700;border-bottom:1px solid #ccc;">Indikator</td>' +
+        '<td style="padding:3px 8px;text-align:right;font-weight:700;border-bottom:1px solid #ccc;">Target</td>' +
+        '<td style="padding:3px 8px;text-align:right;font-weight:700;border-bottom:1px solid #ccc;">Terealisasi</td>' +
+        '<td style="padding:3px 8px;text-align:right;font-weight:700;border-bottom:1px solid #ccc;">Hasil</td>' +
+        '<td style="padding:3px 0 3px 8px;font-weight:700;border-bottom:1px solid #ccc;">Catatan</td>' +
+      '</tr>';
+      var rowsHtml = g.rows.map(function(r){
+        return '<tr>' +
+          '<td style="padding:3px 8px 3px 0;">' + esc(r.indikator || "-") + '</td>' +
+          '<td style="padding:3px 8px;text-align:right;">' + esc(r.target!==""&&r.target!=null?String(r.target):"-") + '</td>' +
+          '<td style="padding:3px 8px;text-align:right;font-weight:700;">' + esc(r.terealisasi!==""&&r.terealisasi!=null?String(r.terealisasi):"-") + '</td>' +
+          '<td style="padding:3px 8px;text-align:right;">' + esc(r.hasil||"-") + '</td>' +
+          '<td style="padding:3px 0 3px 8px;color:#666;">' + esc(r.catatan||"") + '</td>' +
+        '</tr>';
       }).join("");
-      return '<div style="margin-bottom:12px;"><div style="font-weight:700;font-size:12.5px;margin-bottom:4px;">' + esc(name) + '</div><table style="width:100%;border-collapse:collapse;font-size:12px;">' + rowsHtml + '</table></div>';
+      return '<div style="margin-bottom:14px;"><div style="font-weight:700;font-size:12.5px;margin-bottom:4px;">' + esc(g.staff || "(Tanpa nama)") + '</div><table style="width:100%;border-collapse:collapse;font-size:11.5px;">' + headRow + rowsHtml + '</table></div>';
     }).join("");
-    metricsHtmlPrint = '<div class="doc-section-h">Data Kinerja / Capaian</div>' + groupsHtml;
+    metricsHtmlPrint = groupsHtml ? '<div class="doc-section-h">Data Kinerja / Capaian</div>' + groupsHtml : "";
   }
 
   var html = '<div class="doc-page">' +
